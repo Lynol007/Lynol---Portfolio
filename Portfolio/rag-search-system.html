@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG-Based AI Search System | Lynol Chiv</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="navbar navbar-centered">
+    <div class="nav-pill">
+      <span class="logo-pill">CHIV LYNOL</span>
+      <nav>
+        <a href="index.html">About</a>
+        <a href="case-studies.html" aria-current="page">Case Studies</a>
+        <a href="blog.html">Blog</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="case-study">
+    <div class="container">
+
+      <a href="case-studies.html" class="back-link">&larr; Back to Case Studies</a>
+
+      <img src="./rag-book-search-assistant.jpg" alt="Book Search Assistant title card: a robot reading an open book, captioned 'A RAG-Based AI Search System'" class="study-cover" width="1600" height="900">
+
+      <header class="study-hero">
+        <p class="study-eyebrow">CS382 Final Project</p>
+        <h1 class="study-title">Book Search Assistant</h1>
+        <p class="study-lede">
+          A Retrieval-Augmented Generation system that answers questions about 20 popular
+          self-improvement books &mdash; grounded in a purpose-written corpus, with visible
+          citations, similarity scores, and a refusal path when the sources don't hold an answer.
+        </p>
+        <ul class="chip-row">
+          <li class="chip">Python</li>
+          <li class="chip">Streamlit</li>
+          <li class="chip">sentence-transformers</li>
+          <li class="chip">Google Gemini</li>
+          <li class="chip">RAG</li>
+        </ul>
+        <div class="study-actions">
+          <a href="https://drive.google.com/file/d/1a3QYMy-JcLda3u_jzVQD5Abzzpv-d1dQ/view?usp=sharing" class="btn-primary" target="_blank" rel="noopener">Watch Demo Video</a>
+          <a href="https://drive.google.com/file/d/1C0X5k2Giksj-j_3UOXvV-a45ppy4cft1/view?usp=sharing" class="btn-primary" target="_blank" rel="noopener">View Slides</a>
+          <a href="https://github.com/Lynol007/final_CS_382_CLN" class="btn-primary" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+      </header>
+
+      <section class="study-section">
+        <h2>The problem</h2>
+        <p>
+          Self-improvement books repeat and contradict each other. A reader with a real
+          question &mdash; <em>"how do I stop procrastinating?"</em> &mdash; doesn't want a
+          keyword match; they want an answer synthesised across books, with a pointer back to
+          which book said what so they can verify it and read further.
+        </p>
+        <p>
+          Keyword search fails this outright. The query <em>"how can I stop caring about other
+          people's opinions?"</em> shares almost no vocabulary with the passage that answers it
+          in <em>The Courage to Be Disliked</em>. The goal was a system that retrieves by
+          <strong>meaning</strong>, generates an answer grounded only in what it retrieved, and
+          says so plainly when nothing relevant exists.
+        </p>
+      </section>
+
+      <section class="study-section">
+        <h2>Architecture</h2>
+        <p>
+          Four independent modules with stable interfaces. Each layer was upgraded from the
+          TF-IDF starter without touching the others &mdash; the interface boundaries were the
+          point, not an accident.
+        </p>
+        <ol class="pipeline">
+          <li class="pipeline-step">
+            <span class="pipeline-num">1</span>
+            <div class="pipeline-body">
+              <h3>Corpus &mdash; <code>data/books/</code></h3>
+              <p>25 documents: 20 original book study notes (~900 words each) plus 5 thematic
+              guides that compare books across a theme, with <code>catalog.json</code> metadata.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">2</span>
+            <div class="pipeline-body">
+              <h3>Ingest &mdash; <code>rag/ingest.py</code></h3>
+              <p>Sentence-aware chunking at a ~180-word budget with 2-sentence overlap,
+              producing 119 chunk records. No sentence is ever split across a boundary.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">3</span>
+            <div class="pipeline-body">
+              <h3>Embed &amp; retrieve &mdash; <code>rag/embed_store.py</code></h3>
+              <p><code>all-MiniLM-L6-v2</code> embeddings into an L2-normalised matrix, disk-cached
+              by corpus hash, queried by cosine top-k. Falls back to TF-IDF if the model isn't installed.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">4</span>
+            <div class="pipeline-body">
+              <h3>Generate &mdash; <code>rag/generate.py</code></h3>
+              <p>A grounded prompt to Gemini that requires citations, with an extractive
+              fallback. Refuses outright when the retrieved sources don't answer the question.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">5</span>
+            <div class="pipeline-body">
+              <h3>Interface &mdash; <code>app.py</code></h3>
+              <p>Streamlit UI: query form, answer panel, expandable sources with similarity
+              scores, top-k slider, answer-mode toggle, and latency display.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="study-section">
+        <h2>Design decisions</h2>
+        <div class="decision-list">
+          <article class="decision">
+            <h3>Original study notes, not book text</h3>
+            <p>The 20 books are copyrighted, so the corpus is original study-note documents
+            written for this project &mdash; core thesis, key frameworks, practices,
+            cross-references. The 5 thematic guides were added deliberately, and the evaluation
+            confirmed they earn their place: comparison and recommendation queries retrieve them first.</p>
+          </article>
+          <article class="decision">
+            <h3>Sentence-aware chunking over fixed windows</h3>
+            <p>The starter split on fixed word counts, cutting sentences in half. A ~180-word
+            budget that respects sentence boundaries, with 2-sentence overlap, keeps
+            boundary-spanning ideas retrievable without fragmenting meaning.</p>
+          </article>
+          <article class="decision">
+            <h3>Embeddings over TF-IDF</h3>
+            <p>Retrieval by meaning rather than word overlap. <code>all-MiniLM-L6-v2</code> runs
+            locally and free, so retrieval carries no API dependency &mdash; only generation does.</p>
+          </article>
+          <article class="decision">
+            <h3>In-memory cosine search, not a vector database</h3>
+            <p>At 119 chunks a normalised matrix multiply takes ~100 ms; FAISS or Chroma would
+            add operational complexity for no gain at this scale. The
+            <code>VectorStore.build/query</code> interface is deliberately DB-shaped so one could
+            be swapped in for a larger corpus.</p>
+          </article>
+          <article class="decision">
+            <h3>A fallback chain, so the demo cannot break</h3>
+            <p>Gemini with retry and fallback models on transient 503s, degrading to extractive
+            passages. A missing key, a down API, or a provider load spike cannot take the live demo down.</p>
+          </article>
+          <article class="decision">
+            <h3>Graceful failure by relevance floor</h3>
+            <p>If no chunk scores at least 0.20 cosine, the app reports that it found nothing
+            relevant and never calls the LLM. Off-topic questions are structurally incapable of
+            producing a hallucinated answer &mdash; the guard sits before generation, not after.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="study-section">
+        <h2>Evaluation</h2>
+        <p>
+          Eight test queries spanning seven query types a real user would ask, each with the
+          book(s) that <em>should</em> be retrieved &mdash; plus one deliberately off-topic query
+          the system must refuse. Run on 2026-07-22 against the full pipeline.
+        </p>
+
+        <div class="stat-row">
+          <div class="stat-tile">
+            <span class="stat-value">7/7</span>
+            <span class="stat-label">Retrieval hit@4</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">7/7</span>
+            <span class="stat-label">Citation accuracy</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value">1/1</span>
+            <span class="stat-label">Graceful failure on off-topic</span>
+          </div>
+        </div>
+
+        <div class="table-scroll" role="region" aria-label="Per-query evaluation results, scrollable" tabindex="0">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Query type</th>
+                <th scope="col">Top-1 document</th>
+                <th scope="col">Top score</th>
+                <th scope="col">Hit@4</th>
+                <th scope="col">Cited</th>
+                <th scope="col">Retrieval</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">1</th><td>Single-book factual</td><td>Atomic Habits</td>
+                <td class="num">0.674</td><td>Pass</td><td>Pass</td><td class="num">7,490 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">2</th><td>Concept, no book named</td><td>The Four Agreements</td>
+                <td class="num">0.479</td><td>Pass</td><td>Pass</td><td class="num">81 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">3</th><td>Cross-book comparison</td><td>Guide: Money &amp; Wealth</td>
+                <td class="num">0.764</td><td>Pass</td><td>Pass</td><td class="num">60 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">4</th><td>Named-concept lookup</td><td>Can't Hurt Me</td>
+                <td class="num">0.232</td><td>Pass</td><td>Pass</td><td class="num">122 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">5</th><td>Multi-book synthesis</td><td>The Compound Effect</td>
+                <td class="num">0.542</td><td>Pass</td><td>Pass</td><td class="num">298 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">6</th><td>Practical how-to</td><td>Deep Work</td>
+                <td class="num">0.610</td><td>Pass</td><td>Pass</td><td class="num">223 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">7</th><td>Recommendation</td><td>Guide: A Reader's Roadmap</td>
+                <td class="num">0.578</td><td>Pass</td><td>Pass</td><td class="num">163 ms</td>
+              </tr>
+              <tr>
+                <th scope="row">8</th><td>Off-topic probe</td><td>&mdash; refused</td>
+                <td class="num">0.166</td><td>Refused</td><td>No LLM call</td><td class="num">70 ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Per-query results. Query 1 includes the one-time embedding-model load; warm retrieval is 60&ndash;300 ms. Scroll the table sideways on a small screen.</p>
+
+        <h3 class="sub-head">What worked</h3>
+        <ul class="finding-list">
+          <li><strong>Semantic retrieval genuinely beat the baseline.</strong> Query 2 names no
+          book at all, yet the embedding model maps "stop caring about other people's opinions"
+          onto the right passages in three different books. Under TF-IDF that query mostly matches stop-words.</li>
+          <li><strong>The thematic guides earned their place.</strong> On comparison and
+          recommendation queries, a purpose-written cross-book guide outranks the individual
+          books and hands the LLM a ready-made comparison to ground on.</li>
+          <li><strong>Grounding held.</strong> Every generated answer cited only books present in
+          the retrieved context, and the off-topic query never reached the LLM at all.</li>
+        </ul>
+
+        <h3 class="sub-head">What didn't &mdash; and what the evaluation changed</h3>
+        <ul class="finding-list">
+          <li><strong>The relevance floor was too strict at 0.30.</strong> Query 4 ("the 40%
+          rule", scoring 0.232) was wrongly refused: short named-concept queries produce low
+          cosine scores because the query carries almost no context. I tuned the floor to 0.20,
+          which keeps a margin above the off-topic score of 0.166 &mdash; though with only one
+          off-topic probe, that margin is thin.</li>
+          <li><strong>Answers were truncating mid-sentence.</strong> The newer Gemini models
+          spend part of the token budget on internal reasoning, so a 1,000-token cap cut answers
+          off &mdash; query 6 originally ended <em>"…boredom [Deep"</em>. Raised to 3,000.</li>
+          <li><strong>Latency is dominated by generation</strong> at ~10&ndash;18 s per answer,
+          plus a ~7 s one-time model load. Disk-caching the embedding matrix removed the
+          retrieval cost; only generation remains.</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h2>What I learned</h2>
+        <div class="decision-list">
+          <article class="decision">
+            <h3>Evaluation is a design tool, not a report card</h3>
+            <p>I expected to run the eval at the end and write down a number. Instead it drove
+            two concrete fixes &mdash; the relevance floor and the token budget &mdash; that I
+            would never have found by manually trying queries I already knew the answers to.
+            The off-topic probe in particular only earns its keep because it can fail.</p>
+          </article>
+          <article class="decision">
+            <h3>Refusing well is a feature</h3>
+            <p>The instinct is to always return something. Putting the relevance floor
+            <em>before</em> the LLM call made refusal structural rather than a matter of prompt
+            wording &mdash; the model can't hallucinate about chocolate cake if it's never asked.</p>
+          </article>
+          <article class="decision">
+            <h3>Module boundaries paid for themselves</h3>
+            <p>Swapping TF-IDF for embeddings touched exactly one file because
+            <code>ingest</code>, <code>embed_store</code>, and <code>generate</code> only talk
+            through narrow interfaces. That decision cost a little upfront and saved the rewrite.</p>
+          </article>
+          <article class="decision">
+            <h3>Match the tool to the scale</h3>
+            <p>Reaching for a vector database at 119 chunks would have been resume-driven
+            engineering. Knowing when <em>not</em> to add infrastructure turned out to be as
+            much of a design decision as any component I did add.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="study-section">
+        <h2>Limitations &amp; next steps</h2>
+        <ul class="finding-list">
+          <li>Answers reflect the study notes' coverage of each book, not the full text &mdash;
+          a question about an obscure chapter detail may correctly return "not enough information".</li>
+          <li>The 0.20 relevance floor was tuned against a single off-topic probe. A larger
+          negative test set would tighten it, and similarity scores are not calibrated
+          probabilities, so the floor would need re-tuning for a different corpus.</li>
+          <li>Single-turn and English-only: no conversation memory.</li>
+          <li>Streaming the generated response would cut perceived latency substantially, since
+          the wait is almost entirely generation time.</li>
+        </ul>
+      </section>
+
+      <a href="case-studies.html" class="back-link">&larr; Back to Case Studies</a>
+
+    </div>
+  </main>
+</body>
+</html>
